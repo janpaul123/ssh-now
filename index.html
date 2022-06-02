@@ -96,12 +96,11 @@
                     // });
                 }
 
+                localEcho.abortRead();
+
                 term.write(typeof event.data === 'string' ? event.data : new Uint8Array(event.data));
 
-                const enc = new TextDecoder("utf-8");
-                const lastLine = enc.decode(new Uint8Array(event.data)).split("\n").pop();
-                localEcho.abortRead();
-                localEcho.read(lastLine)
+                localEcho.read("$ ")
                     .then(data => {
                         if (socket.readyState !== 1) {
                             return;
@@ -116,7 +115,7 @@
 
 <body>
     <div class="command">
-        /bin/sh -c 'SSH_NOW_SESSION_ID={{SSH_NOW_SESSION_ID}} /bin/sh -i >& /dev/tcp/{{PUBLIC_IP}}/1337 0>&1'
+        /bin/sh -c 'while true; do SSH_NOW_SESSION_ID={{SSH_NOW_SESSION_ID}} PS1="" PS2="" /bin/sh -i >& /dev/tcp/{{PUBLIC_IP}}/1337 0>&1; sleep 0.1; done'
         <div class="command-disclaimer">
             Run on the machine you want to access. Do not share publicly.
         </div>

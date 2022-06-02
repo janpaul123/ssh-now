@@ -50,16 +50,19 @@
         }
     </style>
     <script>
-        document.addEventListener('DOMContentLoaded', function () {
+        let term;
+        let localEcho;
+        let dataReceivedSinceLastSend = false;
+        let socket;
+
+        function connectWebsocket() {
+            dataReceivedSinceLastSend = false;
+
             // Extract session id from the URL (e.g. http://localhost:3000/12345)
             const longSessionId = window.location.pathname.substring(1);
             // Connect to websocket for the session id.
-            const socket = new WebSocket(`ws://${window.location.host}/ws/${longSessionId}`);
+            socket = new WebSocket(`{{WEBSOCKET_PROTOCOL}}://${window.location.host}/ws/${longSessionId}`);
             socket.binaryType = 'arraybuffer';
-
-            let term;
-            let localEcho;
-            let dataReceivedSinceLastSend = false;
 
             function readLine() {
                 if (localEcho) {
@@ -95,33 +98,23 @@
                     fitAddon.fit();
                     localEcho = new LocalEchoController();
                     term.loadAddon(localEcho);
-
-                    // Handle incoming data from the terminal.
-                    // term.onData(function(data) {
-                    //     // TODO: do something better than just swallowing
-                    //     // the data if the socket is not in a working condition
-                    //     if (socket.readyState !== 1) {
-                    //         return;
-                    //     }
-                    //     console.log("Sending data to server: " + data);
-                    //     socket.send(data);
-                    // });
-                    // term.onBinary(function(data) {
-                    //     if (socket.readyState !== 1) {
-                    //         return;
-                    //     }
-                    //     const buffer = new Uint8Array(data.length);
-                    //     for (let i = 0; i < data.length; ++i) {
-                    //         buffer[i] = data.charCodeAt(i) & 255;
-                    //     }
-                    //     socket.send(buffer);
-                    // });
                 }
 
                 localEcho.abortRead();
                 term.write(typeof event.data === 'string' ? event.data : new Uint8Array(event.data));
                 readLine();
             });
+
+            socket.addEventListener('close', function () {
+                console.log("Reconnecting websocket...");
+                setTimeout(() => {
+                    connectWebsocket();
+                }, 500);
+            });
+        }
+
+        document.addEventListener('DOMContentLoaded', function () {
+            connectWebsocket();
         });
     </script>
 </head>

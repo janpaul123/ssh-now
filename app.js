@@ -1,6 +1,5 @@
 import express from "express";
 import expressWs from "express-ws";
-import { join } from "path";
 import { Server } from 'net';
 import publicIp from "public-ip";
 import dotenv from "dotenv";
@@ -86,8 +85,14 @@ app.get("/", (_req, res) => {
 publicIp.v4().then(ip => {
   const indexFile = fs.readFileSync("index.html", 'utf8');
   app.get("/:long_session_id", (req, res) => {
-    ip = "127.0.0.1";
-    res.send(indexFile.replace("{{PUBLIC_IP}}", ip).replace("{{SSH_NOW_SHORT_SESSION_ID}}", shortSessionIdFromLongSessionId(req.params.long_session_id)));
+    if (process.env.LOCAL === "true") {
+      ip = "127.0.0.1";
+    }
+    const file = indexFile
+      .replace("{{PUBLIC_IP}}", ip)
+      .replace("{{SSH_NOW_SHORT_SESSION_ID}}", shortSessionIdFromLongSessionId(req.params.long_session_id))
+      .replace("{{WEBSOCKET_PROTOCOL}}", process.env.LOCAL === "true" ? "ws" : "wss");
+    res.send(file);
   });
 });
 

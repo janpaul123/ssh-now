@@ -6,6 +6,7 @@ import publicIp from "public-ip";
 import dotenv from "dotenv";
 import fs from "fs";
 import { v4 as uuidv4 } from 'uuid';
+import hasha from 'hasha';
 
 dotenv.config();
 
@@ -15,17 +16,22 @@ server.listen(remoteServerPort, function () {
   console.log(`Server listening for connection requests on socket localhost:${remoteServerPort}`);
 });
 
-const remoteSocketsBySessionId = {};
-const webSocketsBySessionId = {};
+const remoteSocketsByShortSessionId = {};
+const webSocketsByShortSessionId = {};
 
-function generateSessionId() {
-  return uuidv4().replace(/-/g, "");
+function generateLongSessionId() {
+  return [uuidv4(), uuidv4(), uuidv4(), uuidv4(), uuidv4()].join("").replace(/-/g, "");
 }
-const sessionIdLength = generateSessionId().length;
+// const longSessionIdLength = generateLongSessionId().length;
 
-function sendToWebsockets(sessionId, message) {
-  if (webSocketsBySessionId[sessionId]) {
-    for (const webSocket of webSocketsBySessionId[sessionId]) {
+function shortSessionIdFromLongSessionId(longSessionId) {
+  return hasha(longSessionId).substring(0, 16);
+}
+const shortSessionIdLength = shortSessionIdFromLongSessionId(generateLongSessionId()).length;
+
+function sendToWebsockets(shortSessionId, message) {
+  if (webSocketsByShortSessionId[shortSessionId]) {
+    for (const webSocket of webSocketsByShortSessionId[shortSessionId]) {
       webSocket.send(message);
     }
   }
@@ -33,85 +39,86 @@ function sendToWebsockets(sessionId, message) {
 
 server.on('connection', function (socket) {
   let chunks = "";
-  let sessionId = undefined;
+  let shortSessionId = undefined;
   console.log('New socket...');
-  socket.write('echo SSH_NOW_SESSION_ID=$SSH_NOW_SESSION_ID\n');
   socket.on('data', function (chunk) {
-    if (sessionId) {
-      sendToWebsockets(sessionId, chunk);
+    if (shortSessionId) {
+      sendToWebsockets(shortSessionId, chunk);
     } else {
       chunks += chunk;
-      // Extract SSH_NOW_SESSION_ID using sessionIdLength and store it in remoteSocketsBySessionId
-      if (chunks.indexOf('SSH_NOW_SESSION_ID=') > -1) {
-        sessionId = chunks.split('SSH_NOW_SESSION_ID=')[1].substring(0, sessionIdLength);
-        console.log(`New session: ${sessionId}`);
-        remoteSocketsBySessionId[sessionId] = remoteSocketsBySessionId[sessionId] || [];
-        remoteSocketsBySessionId[sessionId].push(socket);
+      // Extract SSH_NOW_SHORT_SESSION_ID using shortSessionIdLength and store it in remoteSocketsByShortSessionId
+      if (chunks.indexOf('SSH_NOW_SHORT_SESSION_ID=') > -1) {
+        shortSessionId = chunks.split('SSH_NOW_SHORT_SESSION_ID=')[1].substring(0, shortSessionIdLength);
+        console.log(`New session: ${shortSessionId}`);
+        remoteSocketsByShortSessionId[shortSessionId] = remoteSocketsByShortSessionId[shortSessionId] || [];
+        remoteSocketsByShortSessionId[shortSessionId].push(socket);
         chunks = "";
-        sendToWebsockets(sessionId, "");
+        sendToWebsockets(shortSessionId, "");
       }
     }
     console.log(`Data received from client: ${chunk.toString()}`);
   });
   socket.on('end', function () {
-    if (sessionId && remoteSocketsBySessionId[sessionId]) {
-      remoteSocketsBySessionId[sessionId].splice(remoteSocketsBySessionId[sessionId].indexOf(socket), 1);
-      if (remoteSocketsBySessionId[sessionId].length === 0) {
-        delete remoteSocketsBySessionId[sessionId];
+    if (shortSessionId && remoteSocketsByShortSessionId[shortSessionId]) {
+      remoteSocketsByShortSessionId[shortSessionId].splice(remoteSocketsByShortSessionId[shortSessionId].indexOf(socket), 1);
+      if (remoteSocketsByShortSessionId[shortSessionId].length === 0) {
+        delete remoteSocketsByShortSessionId[shortSessionId];
       }
     }
   });
   socket.on('error', function (err) {
     console.log(`Error: ${err.stack}`);
-    if (sessionId) {
-      sendToWebsockets(sessionId, `SSH Now socket error: ${err.stack}`);
+    if (shortSessionId) {
+      sendToWebsockets(shortSessionId, `SSH Now socket error: ${err.stack}`);
     }
   });
+  socket.write('echo SSH_NOW_SHORT_SESSION_ID=$SSH_NOW_SHORT_SESSION_ID\n');
 });
 
 const app = express();
 app.use("/node_modules/", express.static("./node_modules/"));
 
 app.get("/", (_req, res) => {
-  // Redirect with a session id.
-  res.redirect(`/${uuidv4().replace(/-/g, "")}`);
+  // Redirect with a long session id.
+  res.redirect(`/${generateLongSessionId()}`);
 });
 
 publicIp.v4().then(ip => {
   const indexFile = fs.readFileSync("index.html", 'utf8');
-  app.get("/:session_id", (req, res) => {
+  app.get("/:long_session_id", (req, res) => {
     ip = "127.0.0.1";
-    res.send(indexFile.replace("{{PUBLIC_IP}}", ip).replace("{{SSH_NOW_SESSION_ID}}", req.params.session_id));
+    res.send(indexFile.replace("{{PUBLIC_IP}}", ip).replace("{{SSH_NOW_SHORT_SESSION_ID}}", shortSessionIdFromLongSessionId(req.params.long_session_id)));
   });
 });
 
 // Listen to a websocket given a session id.
 expressWs(app);
-app.ws("/ws/:session_id", (ws, req) => {
-  const sessionId = req.params.session_id;
-  console.log(`New websocket for session ${sessionId}`);
-  webSocketsBySessionId[sessionId] = webSocketsBySessionId[sessionId] || [];
-  webSocketsBySessionId[sessionId].push(ws);
+app.ws("/ws/:long_session_id", (ws, req) => {
+  const longSessionId = req.params.long_session_id;
+  const shortSessionId = shortSessionIdFromLongSessionId(longSessionId);
+  console.log(`New websocket for session ${longSessionId}`);
+  webSocketsByShortSessionId[shortSessionId] = webSocketsByShortSessionId[shortSessionId] || [];
+  webSocketsByShortSessionId[shortSessionId].push(ws);
   ws.on('message', function (msg) {
     console.log(`Message received: ${msg}`);
-    if (remoteSocketsBySessionId[sessionId]) {
+    if (remoteSocketsByShortSessionId[shortSessionId]) {
       console.log(`Sending to remote socket: ${msg}`);
-      for (const remoteSocket of remoteSocketsBySessionId[sessionId]) {
+      for (const remoteSocket of remoteSocketsByShortSessionId[shortSessionId]) {
         remoteSocket.write(msg);
       }
     }
   });
   ws.on('close', function () {
-    console.log(`Websocket closed for session ${sessionId}`);
-    if (webSocketsBySessionId[sessionId]) {
-      webSocketsBySessionId[sessionId].splice(webSocketsBySessionId[sessionId].indexOf(ws), 1);
-      if (webSocketsBySessionId[sessionId].length === 0) {
-        delete webSocketsBySessionId[sessionId];
+    console.log(`Websocket closed for session ${shortSessionId}`);
+    if (webSocketsByShortSessionId[shortSessionId]) {
+      webSocketsByShortSessionId[shortSessionId].splice(webSocketsByShortSessionId[shortSessionId].indexOf(ws), 1);
+      if (webSocketsByShortSessionId[shortSessionId].length === 0) {
+        delete webSocketsByShortSessionId[shortSessionId];
       }
     }
   });
-  if (remoteSocketsBySessionId[sessionId]) {
-    sendToWebsockets(sessionId, "");
+  if (remoteSocketsByShortSessionId[shortSessionId]) {
+    sendToWebsockets(shortSessionId, "");
   }
 });
 

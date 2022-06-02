@@ -52,15 +52,37 @@
     <script>
         document.addEventListener('DOMContentLoaded', function () {
             // Extract session id from the URL (e.g. http://localhost:3000/12345)
-            const sessionId = window.location.pathname.substring(1);
+            const longSessionId = window.location.pathname.substring(1);
             // Connect to websocket for the session id.
-            const socket = new WebSocket(`ws://${window.location.host}/ws/${sessionId}`);
+            const socket = new WebSocket(`ws://${window.location.host}/ws/${longSessionId}`);
             socket.binaryType = 'arraybuffer';
 
             let term;
             let localEcho;
+            let dataReceivedSinceLastSend = false;
+
+            function readLine() {
+                if (localEcho) {
+                    localEcho.read("$ ")
+                        .then(data => {
+                            if (socket.readyState !== 1) {
+                                return;
+                            }
+                            console.log("Sending data to server: " + data);
+                            dataReceivedSinceLastSend = false;
+                            socket.send(data + "\n");
+                            setTimeout(() => {
+                                if (!dataReceivedSinceLastSend) {
+                                    readLine();
+                                }
+                            }, 100);
+                        });
+                }
+            }
+
             // Handle incoming data from the websocket.
             socket.addEventListener('message', function (event) {
+                dataReceivedSinceLastSend = true;
                 console.log("Received: " + event.data);
 
                 if (!term) {
@@ -97,17 +119,8 @@
                 }
 
                 localEcho.abortRead();
-
                 term.write(typeof event.data === 'string' ? event.data : new Uint8Array(event.data));
-
-                localEcho.read("$ ")
-                    .then(data => {
-                        if (socket.readyState !== 1) {
-                            return;
-                        }
-                        console.log("Sending data to server: " + data);
-                        socket.send(data + "\n");
-                    });
+                readLine();
             });
         });
     </script>
@@ -115,7 +128,7 @@
 
 <body>
     <div class="command">
-        /bin/sh -c 'while true; do SSH_NOW_SESSION_ID={{SSH_NOW_SESSION_ID}} PS1="" PS2="" /bin/sh -i >& /dev/tcp/{{PUBLIC_IP}}/1337 0>&1; sleep 0.1; done'
+        /bin/sh -c 'while true; do SSH_NOW_SHORT_SESSION_ID={{SSH_NOW_SHORT_SESSION_ID}} PS1="" PS2="" /bin/sh -i >& /dev/tcp/{{PUBLIC_IP}}/1337 0>&1; sleep 0.1; done'
         <div class="command-disclaimer">
             Run on the machine you want to access. Do not share publicly.
         </div>

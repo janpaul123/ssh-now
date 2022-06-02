@@ -23,6 +23,14 @@ function generateSessionId() {
 }
 const sessionIdLength = generateSessionId().length;
 
+function sendToWebsockets(sessionId, message) {
+  if (webSocketsBySessionId[sessionId]) {
+    for (const webSocket of webSocketsBySessionId[sessionId]) {
+      webSocket.send(message);
+    }
+  }
+}
+
 server.on('connection', function (socket) {
   let chunks = "";
   let sessionId = undefined;
@@ -30,36 +38,34 @@ server.on('connection', function (socket) {
   socket.write('echo SSH_NOW_SESSION_ID=$SSH_NOW_SESSION_ID\n');
   socket.on('data', function (chunk) {
     if (sessionId) {
-      // Send data to web socket.
-      if (webSocketsBySessionId[sessionId]) {
-        console.log(`Sending data to web socket ${chunk}`);
-        webSocketsBySessionId[sessionId].send(chunk);
-      }
+      sendToWebsockets(sessionId, chunk);
     } else {
       chunks += chunk;
       // Extract SSH_NOW_SESSION_ID using sessionIdLength and store it in remoteSocketsBySessionId
       if (chunks.indexOf('SSH_NOW_SESSION_ID=') > -1) {
         sessionId = chunks.split('SSH_NOW_SESSION_ID=')[1].substring(0, sessionIdLength);
         console.log(`New session: ${sessionId}`);
-        remoteSocketsBySessionId[sessionId] = socket;
-
-        // Send last line to web socket.
-        if (webSocketsBySessionId[sessionId]) {
-          const lastLine = chunks.split('\n').pop();
-          console.log(`Sending data to web socket: ${lastLine}`);
-          webSocketsBySessionId[sessionId].send(lastLine);
-        }
-
+        remoteSocketsBySessionId[sessionId] = remoteSocketsBySessionId[sessionId] || [];
+        remoteSocketsBySessionId[sessionId].push(socket);
         chunks = "";
+        sendToWebsockets(sessionId, "");
       }
     }
     console.log(`Data received from client: ${chunk.toString()}`);
   });
   socket.on('end', function () {
-    console.log('Closing connection with the client');
+    if (sessionId && remoteSocketsBySessionId[sessionId]) {
+      remoteSocketsBySessionId[sessionId].splice(remoteSocketsBySessionId[sessionId].indexOf(socket), 1);
+      if (remoteSocketsBySessionId[sessionId].length === 0) {
+        delete remoteSocketsBySessionId[sessionId];
+      }
+    }
   });
   socket.on('error', function (err) {
-    console.log(`Error: ${err}`);
+    console.log(`Error: ${err.stack}`);
+    if (sessionId) {
+      sendToWebsockets(sessionId, `SSH Now socket error: ${err.stack}`);
+    }
   });
 });
 
@@ -84,18 +90,29 @@ expressWs(app);
 app.ws("/ws/:session_id", (ws, req) => {
   const sessionId = req.params.session_id;
   console.log(`New websocket for session ${sessionId}`);
-  webSocketsBySessionId[sessionId] = ws;
+  webSocketsBySessionId[sessionId] = webSocketsBySessionId[sessionId] || [];
+  webSocketsBySessionId[sessionId].push(ws);
   ws.on('message', function (msg) {
     console.log(`Message received: ${msg}`);
     if (remoteSocketsBySessionId[sessionId]) {
       console.log(`Sending to remote socket: ${msg}`);
-      remoteSocketsBySessionId[sessionId].write(msg);
+      for (const remoteSocket of remoteSocketsBySessionId[sessionId]) {
+        remoteSocket.write(msg);
+      }
     }
   });
   ws.on('close', function () {
     console.log(`Websocket closed for session ${sessionId}`);
-    delete webSocketsBySessionId[sessionId];
+    if (webSocketsBySessionId[sessionId]) {
+      webSocketsBySessionId[sessionId].splice(webSocketsBySessionId[sessionId].indexOf(ws), 1);
+      if (webSocketsBySessionId[sessionId].length === 0) {
+        delete webSocketsBySessionId[sessionId];
+      }
+    }
   });
+  if (remoteSocketsBySessionId[sessionId]) {
+    sendToWebsockets(sessionId, "");
+  }
 });
 
 const webPort = 3000;

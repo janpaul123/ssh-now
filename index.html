@@ -128,7 +128,7 @@
 
 <body>
     <div class="command">
-        /bin/sh -c 'while true; do SSH_NOW_SHORT_SESSION_ID={{SSH_NOW_SHORT_SESSION_ID}} PS1="" PS2="" /bin/sh -i >& /dev/tcp/{{PUBLIC_IP}}/1337 0>&1; sleep 0.1; done'
+        /bin/sh -c 'while true; do SSH_NOW_SHORT_SESSION_ID={{SSH_NOW_SHORT_SESSION_ID}} PS1= PS2= /bin/sh -i >& /dev/tcp/{{PUBLIC_IP}}/1337 0>&1; sleep 0.1; done'
         <div class="command-disclaimer">
             Run on the machine you want to access. Do not share publicly.
         </div>

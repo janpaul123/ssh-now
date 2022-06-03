@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <title>SSH Now</title>
+    <script src="node_modules/xterm/lib/xterm.js"></script>
+    <script src="node_modules/xterm-addon-fit/lib/xterm-addon-fit.js"></script>
+    <script src="node_modules/local-echo/dist/local-echo.js"></script>
+    <link rel="stylesheet" href="node_modules/xterm/css/xterm.css" />
+    <style>
+        html {
+            padding: 0;
+            margin: 0;
+        }
+
+        body {
+            padding: 1em;
+            margin: 0;
+            background: black;
+            color: white;
+            font-size: 16px;
+            font-family: Tahoma, Verdana, Segoe, sans-serif;
+            line-height: 1.3;
+            max-width: 700px;
+        }
+
+        a, a:visited {
+            color: #ccc;
+        }
+        a:hover, a:active {
+            color: white;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>SSH Now FAQ</h1>
+
+    <h3>What is SSH Now?</h3>
+    <p>
+        SSH Now is a tool that allows you to connect to a remote server over SSH, by copy-pasting a single command.
+    </p>
+
+    <h3>How do I use SSH Now?</h3>
+    <p>
+        Go to the <a href="/">home page</a>, copy the command shown on the screen, and paste it wherever you want to connect, such as in a CI script, a local terminal, an offensive research target, and so on. The command will connect to the SSH Now server, and a (very basic) terminal will appear in the browser.
+    </p>
+
+    <h3>Who made this and why?</h3>
+    <p>
+        Hi, I'm JP. This is a side project that I created to make it easier to debug remote machines, like CI jobs. For more information about the idea, check out <a href="https://janpaul123.notion.site/SSH-now-5c8238d83a844a3b9dfc1357fb78fd4a">this</a> and <a href="https://twitter.com/JanPaul123/status/1531693532049575936">this</a>.
+    </p>
+
+    <h3>Is it open source?</h3>
+    <p>
+        Yes, it is. You can find the source code on <a href="https://github.com/janpaul123/ssh-now">GitHub</a>. If you're interested in collaborating, please DM me on <a href="https://twitter.com/JanPaul123">Twitter</a>.
+    </p>
+
+    <h3>Why would you create the biggest security risk of the year?</h3>
+    <p>
+        Haha, fair enough.. I wouldn't recommend using this if it doesn't fit into your threat model. In particular, these are some risks:<br>
+        - You'd have to trust me to not use the relay server for nefarious purposes.<br>
+        - While the traffic from the browser to the relay server is encrypted, the traffic from the relay server to the remote server is not, so you'd have to trust the intermediate parties.<br>
+        - The code itself is quite simple (you can check it out on <a href="https://github.com/janpaul123/ssh-now">GitHub</a>), but it's certainly possible for there to be security vulnerabilities.<br>
+        &nbsp;<br>
+        Besides that, the current solution is not very scalable. It's easy to overwhelm the machine with connections to take it down. That shouldn't, by itself, pose a security risk though.<br>
+        &nbsp;<br>
+        I did take some measures to reduce security risks:<br>
+        - The token in the URL (long token) and the token in the remote script (short token) are different. You can derive the short token from the long token, but not vice versa. So if someone is able to find the short token (e.g. if it was accidentally posted somewhere public), they don't automatically have access to your machine. However, they can connect to the relay server and pretend to be your machine, so still be careful.<br>
+        - The long token in the URL is very long, so that it will typically not be fully visible in the browser's URL bar. This means that it's harder to accidentally leak this token over a screenshare.<br>
+        - The TCP connection is aborted if it doesn't return the short token within half a second.<br>
+        - The Websocket connection is encrypted using TLS.<br>
+        &nbsp;<br>
+        At the end of the day, this is just a side project. It could certainly be professionalized as outlined <a href="https://janpaul123.notion.site/SSH-now-5c8238d83a844a3b9dfc1357fb78fd4a">here</a>, but until then, use your own judgement in the risks when using this.
+    </p>
+
+    <h3>Why does the terminal behave poorly?</h3>
+    <p>
+        Currently you don't get a true TTY terminal. In the future we can do things like automatically upgrading the terminal to a TTY terminal.
+    </p>
+</body>
+
+</html>

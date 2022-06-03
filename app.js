@@ -94,9 +94,24 @@ server.on('connection', function (socket) {
 const app = express();
 app.use("/node_modules/", express.static("./node_modules/"));
 
+// Redirect HTTP to HTTPS
+if (process.env.LOCAL !== "true") {
+  app.use((req, res, next) => {
+    if (req.headers['x-forwarded-proto'] !== 'https') {
+      res.redirect(`https://${req.hostname}${req.url}`);
+    } else {
+      next();
+    }
+  });
+}
+
 app.get("/", (_req, res) => {
   // Redirect with a long session id.
   res.redirect(`/${generateLongSessionId()}`);
+});
+
+app.get("/faq", (_req, res) => {
+  res.sendFile("./faq.html", { root: "./" });
 });
 
 let ip = "127.0.0.1";
@@ -112,7 +127,8 @@ app.get("/:long_session_id", (req, res) => {
   const file = indexFile
     .replace("{{PUBLIC_IP}}", ip)
     .replace("{{SSH_NOW_SHORT_SESSION_ID}}", shortSessionIdFromLongSessionId(req.params.long_session_id))
-    .replace("{{WEBSOCKET_PROTOCOL}}", process.env.LOCAL === "true" ? "ws" : "wss");
+    .replace("{{WEBSOCKET_PROTOCOL}}", process.env.LOCAL === "true" ? "ws" : "wss")
+    .replace("{{LOCAL}}", process.env.LOCAL === "true" ? "true" : "false");
   res.send(file);
 });
 

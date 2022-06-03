@@ -9,6 +9,7 @@ RUN npm install --production
 
 COPY app.js .
 COPY index.html .
+COPY faq.html .
 
 EXPOSE 80
 EXPOSE 1337

@@ -4,8 +4,10 @@
 	"private": true,
 	"type": "module",
 	"scripts": {
-		"dev": "LOCAL=true nodemon app.js",
-		"start": "node app.js"
+		"dev": "LOCAL=true VERBOSE=true nodemon app.js",
+		"start": "node app.js",
+        "docker:build": "docker build . --tag janpaul123/ssh-now:latest",
+        "docker:push": "docker push janpaul123/ssh-now:latest"
 	},
 	"dependencies": {
 		"dotenv": "10.0.0",
@@ -13,7 +15,6 @@
 		"express-ws": "^5.0.2",
 		"hasha": "^5.2.2",
 		"local-echo": "wavesoft/local-echo#e09efbba529cfca6de38339697eaa22c49cc627b",
-		"public-ip": "^5.0.0",
 		"uuid": "^8.3.2",
 		"xterm": "^4.18.0",
 		"xterm-addon-fit": "^0.5.0"

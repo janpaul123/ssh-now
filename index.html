@@ -96,8 +96,13 @@
                     term.open(document.getElementById('terminal'));
                     // Make the terminal's size and geometry fit the size of #terminal
                     fitAddon.fit();
+                    // And keep resizing when the window is resized.
+                    window.addEventListener('resize', () => fitAddon.fit());
+
                     localEcho = new LocalEchoController();
                     term.loadAddon(localEcho);
+
+                    document.querySelector(".command").style.display = "none";
                 }
 
                 localEcho.abortRead();

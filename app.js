@@ -94,17 +94,6 @@ server.on('connection', function (socket) {
 const app = express();
 app.use("/node_modules/", express.static("./node_modules/"));
 
-// Redirect HTTP to HTTPS
-if (process.env.LOCAL !== "true") {
-  app.use((req, res, next) => {
-    if (req.headers['x-forwarded-proto'] !== 'https') {
-      res.redirect(`https://${req.hostname}${req.url}`);
-    } else {
-      next();
-    }
-  });
-}
-
 app.get("/", (_req, res) => {
   // Redirect with a long session id.
   res.redirect(`/${generateLongSessionId()}`);

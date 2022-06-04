@@ -147,6 +147,14 @@ app.ws("/ws/:long_session_id", (ws, req) => {
         remoteSocket.write(msg);
       }
     }
+    // Also send to the other websockets, excluding the current one.
+    if (webSocketsByShortSessionId[shortSessionId]) {
+      for (const webSocket of webSocketsByShortSessionId[shortSessionId]) {
+        if (webSocket !== ws) {
+          webSocket.send("$ " + msg);
+        }
+      }
+    }
   });
   ws.on('close', function () {
     if (process.env.VERBOSE === "true") {

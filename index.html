@@ -63,6 +63,7 @@
             font-size: 12px;
             font-family: Tahoma, Verdana, Segoe, sans-serif;
             color: #ccc;
+            z-index: 1000000000;
         }
 
         a, a:visited {
@@ -158,6 +159,9 @@
         <div class="command-main">/bin/sh -c 'while true; do SSH_NOW_SHORT_SESSION_ID={{SSH_NOW_SHORT_SESSION_ID}} PS1= PS2= /bin/sh -i >& /dev/tcp/{{PUBLIC_IP}}/1337 0>&1; sleep 0.1; done'</div>
         <div class="command-disclaimer">
             Run on the machine you want to access. Do not share publicly.<br>
+            &nbsp;<br>
+            <a href="https://github.com/janpaul123/ssh-now">Github</a> | <a href="https://www.youtube.com/watch?v=oAnc6Rih63I">Explainer video</a> | <a href="/faq">FAQ</a>
+
         </div>
     </div>
     <div id="terminal"></div>
